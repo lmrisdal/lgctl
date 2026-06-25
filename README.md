@@ -84,8 +84,18 @@ sudo systemctl daemon-reload
 sudo systemctl enable lgctl-sleep.service
 ```
 
-Or just run `packaging/install.sh`, which builds, installs the binary to
-`/usr/local/bin`, drops the example config, and enables the unit.
+Or just run `packaging/install.sh`, which downloads the latest release binary
+for your architecture, installs it to `/usr/local/bin`, drops the example
+config, installs the unit, and enables it:
+
+```sh
+sudo ./packaging/install.sh            # download + install latest release
+sudo ./packaging/install.sh --build    # build from source instead (needs Go)
+```
+
+For a **private** repo, the script uses the GitHub CLI when available
+(`gh auth login` first); otherwise the release download needs the repo to be
+public. `--build` always works from a local checkout.
 
 Test it:
 

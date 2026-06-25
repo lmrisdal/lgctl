@@ -1,31 +1,85 @@
 #!/usr/bin/env bash
-# Build lgctl, install the binary, config, and systemd sleep hook.
+# Install lgctl: binary, config, and systemd sleep hook.
+#
+# By default it downloads the latest prebuilt release binary (no Go toolchain
+# needed). Use --build to compile from a local checkout instead.
+#
+#   sudo ./packaging/install.sh            # install latest release
+#   sudo ./packaging/install.sh --build    # build from source (needs Go)
+#
 # Safe to re-run; it won't overwrite an existing config.
 set -euo pipefail
 
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BIN=/usr/local/bin/lgctl
-CONF_DIR=/etc/lgctl
+REPO="lmrisdal/lgctl"
+BIN="/usr/local/bin/lgctl"
+CONF_DIR="/etc/lgctl"
 CONF="$CONF_DIR/config.json"
-UNIT=/etc/systemd/system/lgctl-sleep.service
+UNIT="/etc/systemd/system/lgctl-sleep.service"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd || echo "")"
 
-echo "==> Building lgctl"
-( cd "$REPO_DIR" && CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o lgctl . )
+MODE="release"
+[[ "${1:-}" == "--build" ]] && MODE="build"
+
+case "$(uname -m)" in
+  x86_64|amd64)  ARCH="amd64" ;;
+  aarch64|arm64) ARCH="arm64" ;;
+  *) echo "Unsupported architecture: $(uname -m)" >&2; exit 1 ;;
+esac
+
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+
+have_gh() { command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; }
+
+# fetch_repo_file <path-in-repo> <dest> : prefer a local copy, else pull from
+# GitHub (via gh for private repos, else public raw).
+fetch_repo_file() {
+  local path="$1" dest="$2"
+  if [[ -n "$SCRIPT_DIR" && -f "$SCRIPT_DIR/$path" ]]; then
+    cp "$SCRIPT_DIR/$path" "$dest"
+  elif have_gh; then
+    gh api -H "Accept: application/vnd.github.raw" "repos/$REPO/contents/$path" > "$dest"
+  else
+    curl -fsSL -o "$dest" "https://raw.githubusercontent.com/$REPO/main/$path"
+  fi
+}
+
+echo "==> Obtaining lgctl binary ($MODE, $ARCH)"
+if [[ "$MODE" == "build" ]]; then
+  command -v go >/dev/null 2>&1 || { echo "Go is not installed; omit --build to use a prebuilt release." >&2; exit 1; }
+  [[ -n "$SCRIPT_DIR" ]] || { echo "--build requires running from a checkout." >&2; exit 1; }
+  ( cd "$SCRIPT_DIR" && CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o "$TMP/lgctl" . )
+else
+  asset="lgctl-linux-$ARCH"
+  if have_gh; then
+    gh release download --repo "$REPO" --pattern "$asset" --output "$TMP/lgctl" --clobber
+  else
+    url="https://github.com/$REPO/releases/latest/download/$asset"
+    if ! curl -fSL -o "$TMP/lgctl" "$url"; then
+      echo "Download failed. If the repo is private, install GitHub CLI and run 'gh auth login'," >&2
+      echo "or build from source with: sudo ./packaging/install.sh --build" >&2
+      exit 1
+    fi
+  fi
+fi
+chmod +x "$TMP/lgctl"
 
 echo "==> Installing binary to $BIN"
-sudo install -Dm755 "$REPO_DIR/lgctl" "$BIN"
+sudo install -Dm755 "$TMP/lgctl" "$BIN"
 
 echo "==> Installing config to $CONF"
 sudo mkdir -p "$CONF_DIR"
 if [[ -f "$CONF" ]]; then
   echo "    $CONF already exists, leaving it untouched"
 else
-  sudo install -Dm644 "$REPO_DIR/packaging/config.example.json" "$CONF"
+  fetch_repo_file "packaging/config.example.json" "$TMP/config.json"
+  sudo install -Dm644 "$TMP/config.json" "$CONF"
   echo "    Edit $CONF with your TV's IP and MAC, then run: sudo lgctl pair"
 fi
 
 echo "==> Installing systemd unit to $UNIT"
-sudo install -Dm644 "$REPO_DIR/packaging/lgctl-sleep.service" "$UNIT"
+fetch_repo_file "packaging/lgctl-sleep.service" "$TMP/lgctl-sleep.service"
+sudo install -Dm644 "$TMP/lgctl-sleep.service" "$UNIT"
 sudo systemctl daemon-reload
 sudo systemctl enable lgctl-sleep.service
 
@@ -36,4 +90,6 @@ Done. Next steps:
   2. sudo lgctl pair                       # accept the prompt on the TV
   3. sudo lgctl status                     # verify it works
 The TV will now sleep/wake with the PC. Test with: systemctl suspend
+
+Re-run with --build to compile from source instead of downloading a release.
 EOF
