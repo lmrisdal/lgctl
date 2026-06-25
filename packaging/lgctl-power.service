@@ -1,0 +1,21 @@
+[Unit]
+Description=lgctl - wake the LG TV at boot and power it off at shutdown
+Documentation=https://github.com/lmrisdal/lgctl
+# Boot after the network is up; at shutdown this means we stop (run ExecStop)
+# before the network goes down, so the TV is still reachable.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Stay "active" after ExecStart so ExecStop runs at shutdown/reboot.
+RemainAfterExit=yes
+# Fire-and-forget: detach so an unreachable TV never delays boot. The '-' lets
+# the unit start even if the launcher returns non-zero.
+ExecStart=-/bin/sh -c '/usr/local/bin/lgctl --config /etc/lgctl/config.json on &'
+# Fired as the machine powers down: power the TV off (input-aware).
+ExecStop=-/usr/local/bin/lgctl --config /etc/lgctl/config.json off
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

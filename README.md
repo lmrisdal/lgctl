@@ -73,16 +73,29 @@ sudo lgctl pair      # accept the prompt on the TV with your remote
 The received `client_key` is written back into your config file. After that,
 all commands work non-interactively.
 
-## Run on sleep/wake (systemd)
+## Run on sleep/wake/boot/shutdown (systemd)
 
-The included unit hooks `sleep.target`: `ExecStart` runs (and completes) just
-before the machine suspends, `ExecStop` runs on resume.
+Two units cover all four power events:
+
+- **`lgctl-sleep.service`** hooks `sleep.target`: powers the TV off just before
+  the machine suspends, and back on at resume.
+- **`lgctl-power.service`** hooks boot/shutdown: wakes the TV at boot
+  (fire-and-forget, so an unreachable TV never delays boot) and powers it off at
+  shutdown/reboot. The shutdown step is ordered after the network so the TV is
+  still reachable.
+
+Both power-off paths are input-aware (`check_input_on_off`), so they leave the
+TV alone if you're watching another source.
 
 ```sh
 sudo install -Dm644 packaging/lgctl-sleep.service /etc/systemd/system/lgctl-sleep.service
+sudo install -Dm644 packaging/lgctl-power.service /etc/systemd/system/lgctl-power.service
 sudo systemctl daemon-reload
-sudo systemctl enable lgctl-sleep.service
+sudo systemctl enable lgctl-sleep.service lgctl-power.service
 ```
+
+If you'd rather not have the TV power on at boot, edit `lgctl-power.service` and
+remove its `ExecStart=` line (the shutdown-off behaviour is the `ExecStop=`).
 
 Or just run `packaging/install.sh`, which downloads the latest release binary
 for your architecture, installs it to `/usr/local/bin`, drops the example

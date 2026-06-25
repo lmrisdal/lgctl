@@ -14,7 +14,6 @@ REPO="lmrisdal/lgctl"
 BIN="/usr/local/bin/lgctl"
 CONF_DIR="/etc/lgctl"
 CONF="$CONF_DIR/config.json"
-UNIT="/etc/systemd/system/lgctl-sleep.service"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd || echo "")"
 
 MODE="release"
@@ -77,11 +76,13 @@ else
   echo "    Edit $CONF with your TV's IP and MAC, then run: sudo lgctl pair"
 fi
 
-echo "==> Installing systemd unit to $UNIT"
-fetch_repo_file "packaging/lgctl-sleep.service" "$TMP/lgctl-sleep.service"
-sudo install -Dm644 "$TMP/lgctl-sleep.service" "$UNIT"
+echo "==> Installing systemd units"
+for u in lgctl-sleep.service lgctl-power.service; do
+  fetch_repo_file "packaging/$u" "$TMP/$u"
+  sudo install -Dm644 "$TMP/$u" "/etc/systemd/system/$u"
+done
 sudo systemctl daemon-reload
-sudo systemctl enable lgctl-sleep.service
+sudo systemctl enable lgctl-sleep.service lgctl-power.service
 
 cat <<'EOF'
 
