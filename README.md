@@ -36,7 +36,7 @@ and asks which systemd services to enable (sleep/resume and boot/shutdown).
 Then [Configure](#configure) and [Pair](#pair) below.
 
 <details>
-<summary>Non-interactive flags, build from source, or install from a clone</summary>
+<summary>Non-interactive flags</summary>
 
 Answer the service prompts up front (the default with no terminal — e.g. fully
 piped — is to install both):
@@ -47,21 +47,26 @@ piped — is to install both):
 ... | sh -s -- -y             # accept defaults (both services)
 ```
 
-To build the binary locally instead of downloading a release (needs Go), clone
-and pass `--build`:
-
-```sh
-git clone https://github.com/lmrisdal/lgctl
-cd lgctl
-sudo ./packaging/install.sh            # latest release, interactive
-sudo ./packaging/install.sh --build    # build from source
-```
-
 Run `install.sh --help` for the full option list.
 
 </details>
 
 Each tagged release ships static `amd64`/`arm64` Linux binaries.
+
+### Build it yourself
+
+Prefer to compile from source? Clone and build — it's pure Go standard library,
+so one command produces the static binary:
+
+```sh
+git clone https://github.com/lmrisdal/lgctl
+cd lgctl
+CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o lgctl .
+sudo install -Dm755 lgctl /usr/local/bin/lgctl
+```
+
+Then install the config and systemd units as described under
+[Configure](#configure) and [Power events](#power-events-systemd).
 
 ## Configure
 

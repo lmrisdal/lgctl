@@ -1,15 +1,12 @@
 #!/usr/bin/env bash
-# Install lgctl: binary, config, and (optionally) the systemd power hooks.
+# Install lgctl: download the latest prebuilt release binary, drop a config, and
+# (optionally) install the systemd power hooks. No Go toolchain needed.
 #
-# By default it downloads the latest prebuilt release binary (no Go toolchain
-# needed) and asks which systemd services to install. When there's no terminal
-# to prompt at (e.g. piped in CI), it installs both services.
+# To build it yourself instead, clone the repo and run `go build`.
 #
-#   curl -fsSL .../install.sh | sh         # install latest release (interactive)
-#   sudo ./packaging/install.sh --build    # build from source (needs Go)
+#   curl -fsSL .../install.sh | sh     # install latest release (interactive)
 #
 # Options:
-#   --build        build the binary from a local checkout instead of downloading
 #   --sleep        install the sleep/resume service without asking
 #   --no-sleep     skip the sleep/resume service
 #   --power        install the boot/shutdown service without asking
@@ -26,17 +23,16 @@ CONF_DIR="/etc/lgctl"
 CONF="$CONF_DIR/config.json"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd || echo "")"
 
-MODE="release"
 ASSUME_YES=0
 WANT_SLEEP="ask"   # ask | yes | no
 WANT_POWER="ask"   # ask | yes | no
 
 usage() {
   cat <<'USAGE'
-Install lgctl: binary, config, and (optionally) the systemd power hooks.
+Install lgctl: download the latest release binary, config, and (optionally) the
+systemd power hooks. To build it yourself, clone the repo and run `go build`.
 
 Options:
-  --build        build the binary from a local checkout instead of downloading
   --sleep        install the sleep/resume service without asking
   --no-sleep     skip the sleep/resume service
   --power        install the boot/shutdown service without asking
@@ -48,7 +44,6 @@ USAGE
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --build)              MODE="build" ;;
     --sleep)              WANT_SLEEP="yes" ;;
     --no-sleep)           WANT_SLEEP="no" ;;
     --power|--shutdown)   WANT_POWER="yes" ;;
@@ -99,22 +94,16 @@ fetch_repo_file() {
   fi
 }
 
-echo "==> Obtaining lgctl binary ($MODE, $ARCH)"
-if [[ "$MODE" == "build" ]]; then
-  command -v go >/dev/null 2>&1 || { echo "Go is not installed; omit --build to use a prebuilt release." >&2; exit 1; }
-  [[ -n "$SCRIPT_DIR" && -f "$SCRIPT_DIR/go.mod" ]] || { echo "--build requires running from a checkout (clone the repo first)." >&2; exit 1; }
-  ( cd "$SCRIPT_DIR" && CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o "$TMP/lgctl" . )
+echo "==> Downloading lgctl ($ARCH)"
+asset="lgctl-linux-$ARCH"
+if have_gh; then
+  gh release download --repo "$REPO" --pattern "$asset" --output "$TMP/lgctl" --clobber
 else
-  asset="lgctl-linux-$ARCH"
-  if have_gh; then
-    gh release download --repo "$REPO" --pattern "$asset" --output "$TMP/lgctl" --clobber
-  else
-    url="https://github.com/$REPO/releases/latest/download/$asset"
-    if ! curl -fSL -o "$TMP/lgctl" "$url"; then
-      echo "Download failed. If the repo is private, install GitHub CLI and run 'gh auth login'," >&2
-      echo "or build from source with: sudo ./packaging/install.sh --build" >&2
-      exit 1
-    fi
+  url="https://github.com/$REPO/releases/latest/download/$asset"
+  if ! curl -fSL -o "$TMP/lgctl" "$url"; then
+    echo "Download failed. If the repo is private, install GitHub CLI and run 'gh auth login'," >&2
+    echo "or clone the repo and build it yourself with: go build -o lgctl ." >&2
+    exit 1
   fi
 fi
 chmod +x "$TMP/lgctl"
@@ -169,4 +158,4 @@ echo "  2. sudo lgctl pair                       # accept the prompt on the TV"
 echo "  3. sudo lgctl status                     # verify it works"
 [[ "$WANT_SLEEP" == "yes" ]] && echo "The TV will sleep/wake with the PC. Test with: systemctl suspend"
 echo
-echo "Re-run with --help to see options (e.g. --no-power, --build)."
+echo "Re-run with --help to see options (e.g. --no-power)."
