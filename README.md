@@ -24,15 +24,14 @@ WebSocket client), so `go build` produces one static binary.
 
 ## Install
 
-One command — it downloads the latest release binary for your architecture (no
-Go toolchain needed), installs it to `/usr/local/bin/lgctl`, writes an example
-config to `/etc/lgctl`, and installs + enables the systemd units for
-sleep/wake/boot/shutdown. Safe to re-run; it won't overwrite your config or
-toggle the TV.
+Run the command:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/lmrisdal/lgctl/main/packaging/install.sh | sh
 ```
+
+Installs it to `/usr/local/bin/lgctl`, writes an example
+config to `/etc/lgctl`, and installs + enables the systemd units for sleep/wake/boot/shutdown.
 
 Then [Configure](#configure) and [Pair](#pair) below.
 
