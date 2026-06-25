@@ -31,7 +31,7 @@ sleep/wake/boot/shutdown. Safe to re-run; it won't overwrite your config or
 toggle the TV.
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/lmrisdal/lgctl/main/packaging/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/lmrisdal/lgctl/main/packaging/install.sh | sh
 ```
 
 Then [Configure](#configure) and [Pair](#pair) below.
@@ -48,6 +48,7 @@ cd lgctl
 sudo ./packaging/install.sh            # latest release
 sudo ./packaging/install.sh --build    # build from source
 ```
+
 </details>
 
 Each tagged release ships static `amd64`/`arm64` Linux binaries.
@@ -57,12 +58,12 @@ Each tagged release ships static `amd64`/`arm64` Linux binaries.
 `install.sh` placed an example config at `/etc/lgctl/config.json` (or copy
 `packaging/config.example.json` there yourself). Edit it:
 
-| Field                  | Meaning                                                        |
-|------------------------|---------------------------------------------------------------|
+| Field                  | Meaning                                                       |
+| ---------------------- | ------------------------------------------------------------- |
 | `ip`                   | TV's IP address (give it a DHCP reservation).                 |
 | `mac`                  | TV's MAC for WOL. String, or array for multiple NICs.         |
 | `ssl`                  | Use the encrypted port 3001 (default `true`); `false` = 3000. |
-| `hdmi_input`           | HDMI port the PC is on (1–4).                                  |
+| `hdmi_input`           | HDMI port the PC is on (1–4).                                 |
 | `check_input_on_off`   | Only power off if the PC is the active input.                 |
 | `set_input_on_wake`    | Switch to the PC's input after waking.                        |
 | `input_wake_delay_sec` | Delay before switching input (default 1).                     |
@@ -115,6 +116,7 @@ sudo systemctl enable lgctl-sleep.service lgctl-power.service
 # TV off immediately).
 sudo systemctl start lgctl-power.service
 ```
+
 </details>
 
 > On immutable distros (Bazzite/SteamOS), `/usr/local/bin` (a symlink to
