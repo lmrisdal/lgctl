@@ -7,7 +7,7 @@ switch it to the PC's HDMI input, and put it to sleep when the PC suspends
 A small, single-binary, no-GUI take on the Windows-only
 [LGTV Companion](https://github.com/JPersson77/LGTVCompanion), aimed at HTPCs
 running Linux / SteamOS (e.g. Bazzite). Configured with one JSON file and driven
-by a systemd sleep hook.
+by systemd units.
 
 ## Features
 
@@ -22,30 +22,37 @@ by a systemd sleep hook.
 No external dependencies: it's pure Go standard library (its own minimal
 WebSocket client), so `go build` produces one static binary.
 
-## Install (prebuilt binary — no Go needed)
+## Install
 
-Each tagged release ships static `amd64`/`arm64` Linux binaries, so you don't
-need a Go toolchain on the target (handy on immutable Bazzite/SteamOS):
-
-```sh
-# pick amd64 (most PCs / Steam Deck) or arm64
-curl -fsSL -o lgctl https://github.com/lmrisdal/lgctl/releases/latest/download/lgctl-linux-amd64
-chmod +x lgctl
-sudo install -Dm755 lgctl /usr/local/bin/lgctl
-```
-
-Then follow [Configure](#configure), [Pair](#pair), and
-[Run on sleep/wake](#run-on-sleepwake-systemd) below.
-
-## Build from source
+Clone the repo on the target machine and run the installer. It downloads the
+latest release binary for your architecture (no Go toolchain needed), installs
+it to `/usr/local/bin/lgctl`, writes an example config to `/etc/lgctl`, and
+installs + enables the systemd units for sleep/wake/boot/shutdown. It's safe to
+re-run — it won't overwrite your config or toggle the TV.
 
 ```sh
-CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o lgctl .
+git clone https://github.com/lmrisdal/lgctl
+cd lgctl
+sudo ./packaging/install.sh
 ```
+
+Then [Configure](#configure) and [Pair](#pair) below.
+
+Options:
+
+```sh
+sudo ./packaging/install.sh --build    # build from source instead (needs Go)
+```
+
+On a **private** repo the script downloads the release via the GitHub CLI, so run
+`gh auth login` first; if `gh` isn't available the download needs the repo to be
+public, or use `--build`. Each tagged release ships static `amd64`/`arm64` Linux
+binaries.
 
 ## Configure
 
-Copy `packaging/config.example.json` to `/etc/lgctl/config.json` and edit:
+`install.sh` placed an example config at `/etc/lgctl/config.json` (or copy
+`packaging/config.example.json` there yourself). Edit it:
 
 | Field                  | Meaning                                                        |
 |------------------------|---------------------------------------------------------------|
@@ -73,48 +80,39 @@ sudo lgctl pair      # accept the prompt on the TV with your remote
 The received `client_key` is written back into your config file. After that,
 all commands work non-interactively.
 
-## Run on sleep/wake/boot/shutdown (systemd)
+## Power events (systemd)
 
-Two units cover all four power events:
+`install.sh` sets up two units that cover all four power events:
 
-- **`lgctl-sleep.service`** hooks `sleep.target`: powers the TV off just before
-  the machine suspends, and back on at resume.
-- **`lgctl-power.service`** hooks boot/shutdown: wakes the TV at boot
-  (fire-and-forget, so an unreachable TV never delays boot) and powers it off at
-  shutdown/reboot. The shutdown step is ordered after the network so the TV is
-  still reachable.
+- **`lgctl-sleep.service`** — powers the TV off just before suspend, back on at
+  resume.
+- **`lgctl-power.service`** — wakes the TV at boot (fire-and-forget, so an
+  unreachable TV never delays boot) and powers it off at shutdown/reboot (ordered
+  after the network so the TV is still reachable).
 
 Both power-off paths are input-aware (`check_input_on_off`), so they leave the
-TV alone if you're watching another source.
-
-```sh
-sudo install -Dm644 packaging/lgctl-sleep.service /etc/systemd/system/lgctl-sleep.service
-sudo install -Dm644 packaging/lgctl-power.service /etc/systemd/system/lgctl-power.service
-sudo systemctl daemon-reload
-sudo systemctl enable lgctl-sleep.service lgctl-power.service
-```
-
-If you'd rather not have the TV power on at boot, edit `lgctl-power.service` and
-remove its `ExecStart=` line (the shutdown-off behaviour is the `ExecStop=`).
-
-Or just run `packaging/install.sh`, which downloads the latest release binary
-for your architecture, installs it to `/usr/local/bin`, drops the example
-config, installs the unit, and enables it:
-
-```sh
-sudo ./packaging/install.sh            # download + install latest release
-sudo ./packaging/install.sh --build    # build from source instead (needs Go)
-```
-
-For a **private** repo, the script uses the GitHub CLI when available
-(`gh auth login` first); otherwise the release download needs the repo to be
-public. `--build` always works from a local checkout.
+TV alone if you're watching another source. To skip the boot power-on, remove
+the `ExecStart=` line from `lgctl-power.service`.
 
 Test it:
 
 ```sh
 systemctl suspend
 ```
+
+<details>
+<summary>Installing the units by hand (if you're not using install.sh)</summary>
+
+```sh
+sudo install -Dm644 packaging/lgctl-sleep.service /etc/systemd/system/lgctl-sleep.service
+sudo install -Dm644 packaging/lgctl-power.service /etc/systemd/system/lgctl-power.service
+sudo systemctl daemon-reload
+sudo systemctl enable lgctl-sleep.service lgctl-power.service
+# Arm off-at-shutdown now (don't 'start' the sleep unit — that would power the
+# TV off immediately).
+sudo systemctl start lgctl-power.service
+```
+</details>
 
 > On immutable distros (Bazzite/SteamOS), `/usr/local/bin` (a symlink to
 > `/var/usrlocal/bin`), `/etc`, and `/etc/systemd/system` are all writable, so
