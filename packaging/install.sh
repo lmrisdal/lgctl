@@ -47,7 +47,7 @@ fetch_repo_file() {
 echo "==> Obtaining lgctl binary ($MODE, $ARCH)"
 if [[ "$MODE" == "build" ]]; then
   command -v go >/dev/null 2>&1 || { echo "Go is not installed; omit --build to use a prebuilt release." >&2; exit 1; }
-  [[ -n "$SCRIPT_DIR" ]] || { echo "--build requires running from a checkout." >&2; exit 1; }
+  [[ -n "$SCRIPT_DIR" && -f "$SCRIPT_DIR/go.mod" ]] || { echo "--build requires running from a checkout (clone the repo first)." >&2; exit 1; }
   ( cd "$SCRIPT_DIR" && CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o "$TMP/lgctl" . )
 else
   asset="lgctl-linux-$ARCH"

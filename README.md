@@ -24,30 +24,33 @@ WebSocket client), so `go build` produces one static binary.
 
 ## Install
 
-Clone the repo on the target machine and run the installer. It downloads the
-latest release binary for your architecture (no Go toolchain needed), installs
-it to `/usr/local/bin/lgctl`, writes an example config to `/etc/lgctl`, and
-installs + enables the systemd units for sleep/wake/boot/shutdown. It's safe to
-re-run — it won't overwrite your config or toggle the TV.
+One command — it downloads the latest release binary for your architecture (no
+Go toolchain needed), installs it to `/usr/local/bin/lgctl`, writes an example
+config to `/etc/lgctl`, and installs + enables the systemd units for
+sleep/wake/boot/shutdown. Safe to re-run; it won't overwrite your config or
+toggle the TV.
 
 ```sh
-git clone https://github.com/lmrisdal/lgctl
-cd lgctl
-sudo ./packaging/install.sh
+curl -fsSL https://raw.githubusercontent.com/lmrisdal/lgctl/main/packaging/install.sh | bash
 ```
 
 Then [Configure](#configure) and [Pair](#pair) below.
 
-Options:
+<details>
+<summary>Build from source, or install from a clone</summary>
+
+The one-liner downloads a prebuilt release. To build locally instead (needs Go),
+clone and pass `--build`:
 
 ```sh
-sudo ./packaging/install.sh --build    # build from source instead (needs Go)
+git clone https://github.com/lmrisdal/lgctl
+cd lgctl
+sudo ./packaging/install.sh            # latest release
+sudo ./packaging/install.sh --build    # build from source
 ```
+</details>
 
-On a **private** repo the script downloads the release via the GitHub CLI, so run
-`gh auth login` first; if `gh` isn't available the download needs the repo to be
-public, or use `--build`. Each tagged release ships static `amd64`/`arm64` Linux
-binaries.
+Each tagged release ships static `amd64`/`arm64` Linux binaries.
 
 ## Configure
 
