@@ -7,7 +7,8 @@
 #   sudo ./packaging/install.sh            # install latest release
 #   sudo ./packaging/install.sh --build    # build from source (needs Go)
 #
-# Safe to re-run; it won't overwrite an existing config.
+# Safe to re-run: it won't overwrite an existing config, and it never restarts
+# active units (so re-running never toggles the TV off).
 set -euo pipefail
 
 REPO="lmrisdal/lgctl"
@@ -64,7 +65,10 @@ fi
 chmod +x "$TMP/lgctl"
 
 echo "==> Installing binary to $BIN"
-sudo install -Dm755 "$TMP/lgctl" "$BIN"
+# Atomic replace (temp + rename) so re-running while the old binary is in use
+# can't hit ETXTBSY and never leaves a half-written binary behind.
+sudo install -Dm755 "$TMP/lgctl" "$BIN.new"
+sudo mv -f "$BIN.new" "$BIN"
 
 echo "==> Installing config to $CONF"
 sudo mkdir -p "$CONF_DIR"
@@ -83,6 +87,12 @@ for u in lgctl-sleep.service lgctl-power.service; do
 done
 sudo systemctl daemon-reload
 sudo systemctl enable lgctl-sleep.service lgctl-power.service
+# Arm off-at-shutdown now: lgctl-power.service is a oneshot whose ExecStop only
+# runs at shutdown if the unit was started. `start` is idempotent (no-op if
+# already active) and only triggers a fire-and-forget wake; it is NOT a restart,
+# so re-running never powers the TV off. Without this, off-at-shutdown would not
+# take effect until the next reboot.
+sudo systemctl start lgctl-power.service
 
 cat <<'EOF'
 
