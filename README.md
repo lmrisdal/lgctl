@@ -30,23 +30,34 @@ Run the command:
 curl -fsSL https://raw.githubusercontent.com/lmrisdal/lgctl/main/packaging/install.sh | sh
 ```
 
-Installs it to `/usr/local/bin/lgctl`, writes an example
-config to `/etc/lgctl`, and installs + enables the systemd units for sleep/wake/boot/shutdown.
+Installs it to `/usr/local/bin/lgctl`, writes an example config to `/etc/lgctl`,
+and asks which systemd services to enable (sleep/resume and boot/shutdown).
 
 Then [Configure](#configure) and [Pair](#pair) below.
 
 <details>
-<summary>Build from source, or install from a clone</summary>
+<summary>Non-interactive flags, build from source, or install from a clone</summary>
 
-The one-liner downloads a prebuilt release. To build locally instead (needs Go),
-clone and pass `--build`:
+Answer the service prompts up front (the default with no terminal — e.g. fully
+piped — is to install both):
+
+```sh
+... | sh -s -- --no-power     # skip the boot/shutdown service
+... | sh -s -- --no-sleep     # skip the sleep/resume service
+... | sh -s -- -y             # accept defaults (both services)
+```
+
+To build the binary locally instead of downloading a release (needs Go), clone
+and pass `--build`:
 
 ```sh
 git clone https://github.com/lmrisdal/lgctl
 cd lgctl
-sudo ./packaging/install.sh            # latest release
+sudo ./packaging/install.sh            # latest release, interactive
 sudo ./packaging/install.sh --build    # build from source
 ```
+
+Run `install.sh --help` for the full option list.
 
 </details>
 
@@ -85,7 +96,8 @@ all commands work non-interactively.
 
 ## Power events (systemd)
 
-`install.sh` sets up two units that cover all four power events:
+`install.sh` offers two units (it asks about each) that cover all four power
+events:
 
 - **`lgctl-sleep.service`** — powers the TV off just before suspend, back on at
   resume.
