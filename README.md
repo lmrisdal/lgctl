@@ -22,7 +22,22 @@ by a systemd sleep hook.
 No external dependencies: it's pure Go standard library (its own minimal
 WebSocket client), so `go build` produces one static binary.
 
-## Build
+## Install (prebuilt binary — no Go needed)
+
+Each tagged release ships static `amd64`/`arm64` Linux binaries, so you don't
+need a Go toolchain on the target (handy on immutable Bazzite/SteamOS):
+
+```sh
+# pick amd64 (most PCs / Steam Deck) or arm64
+curl -fsSL -o lgctl https://github.com/lmrisdal/lgctl/releases/latest/download/lgctl-linux-amd64
+chmod +x lgctl
+sudo install -Dm755 lgctl /usr/local/bin/lgctl
+```
+
+Then follow [Configure](#configure), [Pair](#pair), and
+[Run on sleep/wake](#run-on-sleepwake-systemd) below.
+
+## Build from source
 
 ```sh
 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o lgctl .
