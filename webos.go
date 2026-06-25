@@ -103,6 +103,18 @@ func (t *TV) request(id, uri string, payload map[string]any) (map[string]json.Ra
 	if err := t.ws.writeText(string(b)); err != nil {
 		return nil, err
 	}
+	return t.awaitResponse(id)
+}
+
+// requestRaw sends a pre-built request message and waits for the response id.
+func (t *TV) requestRaw(id, raw string) (map[string]json.RawMessage, error) {
+	if err := t.ws.writeText(raw); err != nil {
+		return nil, err
+	}
+	return t.awaitResponse(id)
+}
+
+func (t *TV) awaitResponse(id string) (map[string]json.RawMessage, error) {
 	deadline := time.Now().Add(8 * time.Second)
 	for {
 		remaining := time.Until(deadline)
@@ -171,6 +183,31 @@ func (t *TV) PowerToggle() error {
 
 func (t *TV) TurnOff() error {
 	_, err := t.request("turnOff", "system/turnOff", nil)
+	return err
+}
+
+// lunaSetWOL enables Wake-on-LAN on the TV. Current firmware blocks a direct
+// network setSystemSettings over the public API, so this uses the same luna
+// "createAlert" workaround as the Windows app: the alert carries onclose params
+// that apply the setting, and we immediately close it to trigger them.
+const lunaSetWOL = `{"id":"luna_request","payload":{"buttons":[{"label":"","onClick":"luna://com.webos.settingsservice/setSystemSettings","params":{"category":"network","settings":{"wolwowlOnOff":"true"}}}],"message":" ","onclose":{"params":{"category":"network","settings":{"wolwowlOnOff":"true"}},"uri":"luna://com.webos.settingsservice/setSystemSettings"},"onfail":{"params":{"category":"network","settings":{"wolwowlOnOff":"true"}},"uri":"luna://com.webos.settingsservice/setSystemSettings"}},"type":"request","uri":"ssap://system.notifications/createAlert"}`
+
+// EnableWOL turns on Wake-on-LAN on the TV (best-effort, idempotent).
+func (t *TV) EnableWOL() error {
+	pl, err := t.requestRaw("luna_request", lunaSetWOL)
+	if err != nil {
+		return err
+	}
+	var alertID string
+	if raw, ok := pl["alertId"]; ok {
+		_ = json.Unmarshal(raw, &alertID)
+	}
+	if alertID == "" {
+		// No alert id returned; the setting was likely applied directly.
+		return nil
+	}
+	closeMsg := `{"type":"request","id":"closeLunaAlert","uri":"ssap://system.notifications/closeAlert","payload":{"alertId":"` + alertID + `"}}`
+	_, err = t.requestRaw("closeLunaAlert", closeMsg)
 	return err
 }
 

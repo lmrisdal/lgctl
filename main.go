@@ -129,6 +129,13 @@ func cmdPair(cfg *Config) error {
 	default:
 		fmt.Println("Registered, but the TV returned no client key.")
 	}
+
+	if err := tv.EnableWOL(); err != nil {
+		fmt.Printf("Note: could not auto-enable Wake-on-LAN (%v).\n"+
+			"Enable it manually in the TV settings if waking doesn't work.\n", err)
+	} else {
+		fmt.Println("Wake-on-LAN enabled on the TV.")
+	}
 	return nil
 }
 

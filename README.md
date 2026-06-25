@@ -96,7 +96,9 @@ lgctl status        # show power state and active input
 
 ## Notes
 
-- The TV must have "Quick Start+" (or LAN/Wi-Fi standby) enabled for WOL to work
-  from a fully-off state. lgctl also enables WOL on the TV during pairing on the
-  Windows app; here, enable it once in the TV's settings.
+- `lgctl pair` automatically enables Wake-on-LAN on the TV (best-effort, via the
+  same luna workaround the Windows app uses). If it reports it couldn't, enable
+  it manually in the TV's network settings.
+- The TV must also have "Quick Start+" (or LAN/Wi-Fi standby) enabled for WOL to
+  work from a fully-off state — set this once in the TV's General settings.
 - Wire the PC to the TV over Ethernet for the most reliable WOL.
