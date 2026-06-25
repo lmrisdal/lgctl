@@ -1,0 +1,11 @@
+{
+  "ip": "192.168.1.50",
+  "mac": "aa:bb:cc:dd:ee:ff",
+  "ssl": true,
+  "hdmi_input": 1,
+  "check_input_on_off": true,
+  "set_input_on_wake": true,
+  "input_wake_delay_sec": 1,
+  "timeout_sec": 20,
+  "subnet": "255.255.255.0"
+}

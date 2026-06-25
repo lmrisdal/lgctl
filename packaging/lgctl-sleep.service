@@ -1,0 +1,21 @@
+[Unit]
+Description=lgctl - put the LG TV to sleep before suspend and wake it on resume
+Documentation=https://github.com/larsrisdal/lgctl
+# Run ExecStart fully before the machine actually suspends.
+Before=sleep.target
+StopWhenUnneeded=yes
+
+[Service]
+Type=oneshot
+# Stay "active" after ExecStart so that ExecStop runs on resume.
+RemainAfterExit=yes
+# Fired as the system goes to sleep: power the TV off (input-aware).
+ExecStart=/usr/local/bin/lgctl --config /etc/lgctl/config.json off
+# Fired on resume: wake the TV.
+ExecStop=/usr/local/bin/lgctl --config /etc/lgctl/config.json on
+# Don't delay suspend for long if the TV can't be reached.
+TimeoutStartSec=30
+TimeoutStopSec=60
+
+[Install]
+WantedBy=sleep.target
