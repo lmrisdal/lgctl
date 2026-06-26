@@ -53,6 +53,23 @@ Run `install.sh --help` for the full option list.
 
 Each tagged release ships static `amd64`/`arm64` Linux binaries.
 
+### Update
+
+```sh
+sudo lgctl update   # fetch the latest release, verify its checksum, swap in place
+```
+
+### Uninstall
+
+```sh
+sudo lgctl uninstall
+```
+
+Interactive: it lists the installed systemd services (and whether each is
+enabled), then lets you pick which to remove — or choose **Everything** to also
+delete the binary and `/etc/lgctl` (config + saved pairing key). Disabling a
+service never runs its shutdown hook, so uninstalling does not toggle the TV.
+
 ### Build it yourself
 
 Prefer to compile from source? Clone and build — it's pure Go standard library,

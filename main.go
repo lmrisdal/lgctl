@@ -32,6 +32,9 @@ Commands:
   status           Print the TV's power state and active input.
   update [--force] Download and install the latest lgctl release (run with sudo
                    if lgctl lives in a root-owned path like /usr/local/bin).
+  uninstall        Interactively remove lgctl (needs sudo). Lists what's
+                   installed, then lets you pick which systemd services to
+                   remove, or "everything" (services + binary + config).
   version          Print version.
 
 Config is searched in this order when --config is omitted:
@@ -74,6 +77,12 @@ func main() {
 			os.Exit(2)
 		}
 		if err := cmdUpdate(force); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
+	if cmd == "uninstall" {
+		if err := cmdUninstall(); err != nil {
 			log.Fatal(err)
 		}
 		return
