@@ -186,15 +186,19 @@ func (t *TV) TurnOff() error {
 	return err
 }
 
-// lunaSetWOL enables Wake-on-LAN on the TV. Current firmware blocks a direct
-// network setSystemSettings over the public API, so this uses the same luna
-// "createAlert" workaround as the Windows app: the alert carries onclose params
-// that apply the setting, and we immediately close it to trigger them.
-const lunaSetWOL = `{"id":"luna_request","payload":{"buttons":[{"label":"","onClick":"luna://com.webos.settingsservice/setSystemSettings","params":{"category":"network","settings":{"wolwowlOnOff":"true"}}}],"message":" ","onclose":{"params":{"category":"network","settings":{"wolwowlOnOff":"true"}},"uri":"luna://com.webos.settingsservice/setSystemSettings"},"onfail":{"params":{"category":"network","settings":{"wolwowlOnOff":"true"}},"uri":"luna://com.webos.settingsservice/setSystemSettings"}},"type":"request","uri":"ssap://system.notifications/createAlert"}`
-
-// EnableWOL turns on Wake-on-LAN on the TV (best-effort, idempotent).
-func (t *TV) EnableWOL() error {
-	pl, err := t.requestRaw("luna_request", lunaSetWOL)
+// luna invokes a luna:// service call that the public API otherwise blocks, using
+// the "createAlert" workaround the Windows app relies on: an alert is created
+// whose onclick/onclose/onfail handlers all carry the call we want, and we
+// immediately close it so those handlers fire and apply the change.
+func (t *TV) luna(uri string, params map[string]any) error {
+	handler := map[string]any{"uri": uri, "params": params}
+	payload := map[string]any{
+		"message": " ",
+		"buttons": []map[string]any{{"label": "", "onClick": uri, "params": params}},
+		"onclose": handler,
+		"onfail":  handler,
+	}
+	pl, err := t.request("luna_request", "system.notifications/createAlert", payload)
 	if err != nil {
 		return err
 	}
@@ -203,12 +207,65 @@ func (t *TV) EnableWOL() error {
 		_ = json.Unmarshal(raw, &alertID)
 	}
 	if alertID == "" {
-		// No alert id returned; the setting was likely applied directly.
+		// No alert id returned; the call was likely applied directly.
 		return nil
 	}
-	closeMsg := `{"type":"request","id":"closeLunaAlert","uri":"ssap://system.notifications/closeAlert","payload":{"alertId":"` + alertID + `"}}`
-	_, err = t.requestRaw("closeLunaAlert", closeMsg)
+	_, err = t.request("closeLunaAlert", "system.notifications/closeAlert",
+		map[string]any{"alertId": alertID})
 	return err
+}
+
+// EnableWOL turns on Wake-on-LAN on the TV (best-effort, idempotent). Current
+// firmware blocks a direct network setSystemSettings over the public API.
+func (t *TV) EnableWOL() error {
+	return t.luna("luna://com.webos.settingsservice/setSystemSettings",
+		map[string]any{"category": "network", "settings": map[string]any{"wolwowlOnOff": "true"}})
+}
+
+// inputTypes maps the icon key sent to the TV to the label shown on screen.
+// These mirror the "input type" choices in the webOS UI / the Windows app.
+var inputTypes = []struct{ Key, Label string }{
+	{"hdmigeneric", "HDMI"},
+	{"satellite", "Satellite"},
+	{"settopbox", "Set-Top Box"},
+	{"dvd", "DVD Player"},
+	{"bluray", "Blu-ray Player"},
+	{"hometheater", "Home Theater"},
+	{"gameconsole", "Game Console"},
+	{"streamingbox", "Streaming Box"},
+	{"camera", "Generic Camera"},
+	{"pc", "PC"},
+	{"mobile", "Mobile Device"},
+}
+
+// lookupInputType resolves a user-supplied type name to its icon key and label.
+// It accepts the icon key and a few friendly aliases.
+func lookupInputType(name string) (key, label string, ok bool) {
+	switch strings.ToLower(name) {
+	case "generic", "hdmi":
+		name = "hdmigeneric"
+	case "stb", "set-top-box", "settop":
+		name = "settopbox"
+	case "game", "console":
+		name = "gameconsole"
+	case "streaming", "stream":
+		name = "streamingbox"
+	case "home-theater", "hometheatre":
+		name = "hometheater"
+	}
+	for _, it := range inputTypes {
+		if strings.EqualFold(it.Key, name) {
+			return it.Key, it.Label, true
+		}
+	}
+	return "", "", false
+}
+
+// SetDeviceConfig sets the icon and label shown for an HDMI input (the TV's
+// "input type", e.g. PC, Game Console, Set-Top Box). id is like "HDMI_1".
+func (t *TV) SetDeviceConfig(id, icon, label string) error {
+	return t.luna("luna://com.webos.service.eim/setDeviceInfo",
+		map[string]any{"id": id, "label": label, "icon": icon + ".png"})
 }
 
 func (t *TV) SetHDMIInput(n int) error {

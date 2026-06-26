@@ -145,7 +145,9 @@ sudo systemctl start lgctl-power.service
 lgctl on            # wake (WOL + power on) and optionally switch input
 lgctl off           # power off, but only if the PC is the active input
 lgctl off --force   # power off regardless
-lgctl input 2       # switch to HDMI 2
+lgctl input 2       # switch to HDMI 2 (wakes the TV first if it's off)
+lgctl input-type 2 pc   # set HDMI 2's input type to "PC" (icon + label)
+lgctl input-type list   # list the available input types
 lgctl status        # show power state and active input
 ```
 

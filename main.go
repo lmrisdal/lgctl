@@ -25,7 +25,10 @@ Commands:
   on               Wake the TV (Wake-on-LAN + power on) and optionally switch input.
   off [--force]    Power the TV off. Without --force this only happens if the PC's
                    HDMI input is the active source. Aliases of on/off: resume/suspend.
-  input <1-4>      Switch the TV to the given HDMI input.
+  input <1-4>      Switch the TV to the given HDMI input (waking it first if off).
+  input-type <1-4> <type>
+                   Set the input type (icon/label) for an HDMI input, e.g.
+                   "pc", "gameconsole", "settopbox". Run with no type to list.
   status           Print the TV's power state and active input.
   version          Print version.
 
@@ -63,7 +66,7 @@ func main() {
 	}
 
 	switch cmd {
-	case "pair", "on", "resume", "wake", "off", "suspend", "sleep", "input", "status":
+	case "pair", "on", "resume", "wake", "off", "suspend", "sleep", "input", "input-type", "status":
 		// known; fall through to load config below
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command %q\n\n", cmd)
@@ -98,6 +101,20 @@ func main() {
 			log.Fatalf("invalid HDMI input %q", rest[0])
 		}
 		err = cmdInput(cfg, n)
+	case "input-type":
+		if len(rest) == 1 && (rest[0] == "list" || rest[0] == "-h" || rest[0] == "--help") {
+			printInputTypes()
+			return
+		}
+		if len(rest) != 2 {
+			printInputTypes()
+			log.Fatal("usage: lgctl input-type <1-4> <type>")
+		}
+		n, convErr := strconv.Atoi(rest[0])
+		if convErr != nil || n < 1 {
+			log.Fatalf("invalid HDMI input %q", rest[0])
+		}
+		err = cmdInputType(cfg, n, rest[1])
 	case "status":
 		err = cmdStatus(cfg)
 	default:
@@ -139,37 +156,41 @@ func cmdPair(cfg *Config) error {
 	return nil
 }
 
-func cmdOn(cfg *Config) error {
+// wake brings the TV up via Wake-on-LAN and waits for it to reach the Active
+// state, returning a connected session. woke reports whether the TV actually
+// had to be powered on (false if it was already Active), so callers can decide
+// whether the post-wake input-switch delay is needed.
+func wake(cfg *Config) (tv *TV, woke bool, err error) {
 	deadline := time.Now().Add(time.Duration(cfg.Timeout()) * time.Second)
 
 	stop := make(chan struct{})
 	go wolLoop(cfg, stop)
 
-	var tv *TV
 	for {
-		t, err := Connect(cfg, 3*time.Second, 10*time.Second)
-		if err == nil {
+		t, connErr := Connect(cfg, 3*time.Second, 10*time.Second)
+		if connErr == nil {
 			tv = t
 			break
 		}
 		if time.Now().After(deadline) {
 			close(stop)
-			return fmt.Errorf("power on: could not reach TV within %ds: %w", cfg.Timeout(), err)
+			return nil, false, fmt.Errorf("power on: could not reach TV within %ds: %w", cfg.Timeout(), connErr)
 		}
 		time.Sleep(time.Second)
 	}
 	close(stop) // connected; stop hammering WOL
-	defer tv.finish()
 
 	for {
-		state, processing, err := tv.PowerState()
-		if err != nil {
-			return err
+		state, processing, stErr := tv.PowerState()
+		if stErr != nil {
+			tv.finish()
+			return nil, false, stErr
 		}
 		if state == "Active" && !processing {
 			logf("TV is on")
 			break
 		}
+		woke = true
 		switch {
 		case state == "Screen Off":
 			logf("screen was off; turning it on")
@@ -186,9 +207,20 @@ func cmdOn(cfg *Config) error {
 		}
 		time.Sleep(time.Second)
 	}
+	return tv, woke, nil
+}
+
+func cmdOn(cfg *Config) error {
+	tv, woke, err := wake(cfg)
+	if err != nil {
+		return err
+	}
+	defer tv.finish()
 
 	if cfg.SetInputOnWake {
-		time.Sleep(time.Duration(cfg.InputWakeDelay()) * time.Second)
+		if woke {
+			time.Sleep(time.Duration(cfg.InputWakeDelay()) * time.Second)
+		}
 		if err := tv.SetHDMIInput(cfg.HDMIInputOr1()); err != nil {
 			logf("set input failed: %v", err)
 		} else {
@@ -237,16 +269,46 @@ func cmdOff(cfg *Config, force bool) error {
 }
 
 func cmdInput(cfg *Config, n int) error {
-	tv, err := Connect(cfg, 3*time.Second, 10*time.Second)
+	tv, woke, err := wake(cfg)
 	if err != nil {
 		return err
 	}
 	defer tv.finish()
+	if woke {
+		// Give the TV a moment after waking before switching inputs.
+		time.Sleep(time.Duration(cfg.InputWakeDelay()) * time.Second)
+	}
 	if err := tv.SetHDMIInput(n); err != nil {
 		return err
 	}
 	logf("switched to HDMI %d", n)
 	return nil
+}
+
+func cmdInputType(cfg *Config, n int, name string) error {
+	key, label, ok := lookupInputType(name)
+	if !ok {
+		printInputTypes()
+		return fmt.Errorf("unknown input type %q", name)
+	}
+	tv, err := Connect(cfg, 3*time.Second, 10*time.Second)
+	if err != nil {
+		return err
+	}
+	defer tv.finish()
+	id := fmt.Sprintf("HDMI_%d", n)
+	if err := tv.SetDeviceConfig(id, key, label); err != nil {
+		return err
+	}
+	logf("set %s input type to %s (%s)", id, label, key)
+	return nil
+}
+
+func printInputTypes() {
+	fmt.Fprintln(os.Stderr, "Available input types:")
+	for _, it := range inputTypes {
+		fmt.Fprintf(os.Stderr, "  %-13s %s\n", it.Key, it.Label)
+	}
 }
 
 func cmdStatus(cfg *Config) error {
