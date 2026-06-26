@@ -221,7 +221,7 @@ func cmdOn(cfg *Config) error {
 		if woke {
 			time.Sleep(time.Duration(cfg.InputWakeDelay()) * time.Second)
 		}
-		if err := tv.SetHDMIInput(cfg.HDMIInputOr1()); err != nil {
+		if err := tv.SwitchInput(cfg.HDMIInputOr1()); err != nil {
 			logf("set input failed: %v", err)
 		} else {
 			logf("switched to HDMI %d", cfg.HDMIInputOr1())
@@ -277,7 +277,7 @@ func cmdInput(cfg *Config, n int) error {
 	if woke {
 		time.Sleep(time.Duration(cfg.InputWakeDelay()) * time.Second)
 	}
-	if err := tv.SetHDMIInput(n); err != nil {
+	if err := tv.SwitchInput(n); err != nil {
 		return err
 	}
 	logf("switched to HDMI %d", n)

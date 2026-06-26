@@ -267,6 +267,28 @@ func (t *TV) SetHDMIInput(n int) error {
 	return err
 }
 
+// SwitchInput launches the given HDMI input and confirms the TV actually
+// switched, re-launching if it didn't. webOS often drops the first launch when
+// it arrives right after the socket handshake (e.g. when the TV was already on
+// a different input), so a single fire-and-forget launch isn't reliable.
+func (t *TV) SwitchInput(n int) error {
+	want := fmt.Sprintf("com.webos.app.hdmi%d", n)
+	var lastErr error
+	for attempt := 0; attempt < 5; attempt++ {
+		if err := t.SetHDMIInput(n); err != nil {
+			lastErr = err
+		}
+		time.Sleep(500 * time.Millisecond)
+		if app, err := t.ForegroundApp(); err == nil && app == want {
+			return nil
+		}
+	}
+	if lastErr != nil {
+		return lastErr
+	}
+	return fmt.Errorf("input did not switch to HDMI %d", n)
+}
+
 // finish persists a new pairing key (if one was received) and closes the socket.
 func (t *TV) finish() {
 	if t.newKey {
