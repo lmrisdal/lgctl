@@ -275,7 +275,6 @@ func cmdInput(cfg *Config, n int) error {
 	}
 	defer tv.finish()
 	if woke {
-		// Give the TV a moment after waking before switching inputs.
 		time.Sleep(time.Duration(cfg.InputWakeDelay()) * time.Second)
 	}
 	if err := tv.SetHDMIInput(n); err != nil {

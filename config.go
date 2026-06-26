@@ -8,7 +8,6 @@ import (
 	"strings"
 )
 
-// Config is the on-disk configuration for a single LG webOS TV.
 type Config struct {
 	IP        string  `json:"ip"`
 	MAC       MACList `json:"mac"`
@@ -104,7 +103,6 @@ func (c *Config) SubnetMask() string {
 	return c.Subnet
 }
 
-// configSearchPaths returns the candidate locations checked when --config is not given.
 func configSearchPaths() []string {
 	var paths []string
 	if env := os.Getenv("LGCTL_CONFIG"); env != "" {
@@ -117,8 +115,6 @@ func configSearchPaths() []string {
 	return paths
 }
 
-// LoadConfig reads the config from the given path, or searches the default
-// locations when path is empty.
 func LoadConfig(path string) (*Config, error) {
 	if path == "" {
 		for _, p := range configSearchPaths() {
@@ -146,7 +142,6 @@ func LoadConfig(path string) (*Config, error) {
 	return &c, nil
 }
 
-// Save writes the config back to its source file (used to persist the pairing key).
 func (c *Config) Save() error {
 	if c.path == "" {
 		return fmt.Errorf("config has no source path to save to")

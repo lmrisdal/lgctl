@@ -21,7 +21,6 @@ func buildRegister(clientKey string) string {
 		`"pairingType":"PROMPT","client-key":"`+clientKey+`",`, 1)
 }
 
-// TV is an authenticated connection to a single webOS device.
 type TV struct {
 	cfg    *Config
 	ws     *wsConn
@@ -91,7 +90,6 @@ func (t *TV) register(timeout time.Duration) error {
 	}
 }
 
-// request sends an ssap request and waits for the response with a matching id.
 func (t *TV) request(id, uri string, payload map[string]any) (map[string]json.RawMessage, error) {
 	msg := map[string]any{"type": "request", "id": id, "uri": "ssap://" + uri}
 	if payload != nil {
@@ -106,7 +104,6 @@ func (t *TV) request(id, uri string, payload map[string]any) (map[string]json.Ra
 	return t.awaitResponse(id)
 }
 
-// requestRaw sends a pre-built request message and waits for the response id.
 func (t *TV) requestRaw(id, raw string) (map[string]json.RawMessage, error) {
 	if err := t.ws.writeText(raw); err != nil {
 		return nil, err
@@ -145,7 +142,6 @@ func (t *TV) awaitResponse(id string) (map[string]json.RawMessage, error) {
 	}
 }
 
-// PowerState reports the TV's state string and whether it is mid-transition.
 func (t *TV) PowerState() (state string, processing bool, err error) {
 	pl, err := t.request("getPowerState", "com.webos.service.tvpower/power/getPowerState", nil)
 	if err != nil {
@@ -158,7 +154,6 @@ func (t *TV) PowerState() (state string, processing bool, err error) {
 	return state, processing, nil
 }
 
-// ForegroundApp returns the appId of the currently active source/app.
 func (t *TV) ForegroundApp() (string, error) {
 	pl, err := t.request("getForegroundApp", "com.webos.applicationManager/getForegroundAppInfo", nil)
 	if err != nil {
@@ -238,8 +233,6 @@ var inputTypes = []struct{ Key, Label string }{
 	{"mobile", "Mobile Device"},
 }
 
-// lookupInputType resolves a user-supplied type name to its icon key and label.
-// It accepts the icon key and a few friendly aliases.
 func lookupInputType(name string) (key, label string, ok bool) {
 	switch strings.ToLower(name) {
 	case "generic", "hdmi":

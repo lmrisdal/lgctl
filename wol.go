@@ -9,7 +9,6 @@ import (
 	"time"
 )
 
-// magicPacket builds the 102-byte Wake-on-LAN payload for a MAC address.
 func magicPacket(mac string) ([]byte, error) {
 	clean := strings.Map(func(r rune) rune {
 		switch r {
@@ -57,7 +56,6 @@ func subnetBroadcast(ip, mask string) string {
 	return b.String()
 }
 
-// sendWOL transmits one magic packet per MAC to every target address.
 func sendWOL(cfg *Config) error {
 	if len(cfg.MAC) == 0 {
 		return fmt.Errorf("no MAC address configured for WOL")
@@ -68,7 +66,6 @@ func sendWOL(cfg *Config) error {
 	}
 	defer conn.Close()
 
-	// Enable broadcast on the underlying socket.
 	if sc, err := conn.SyscallConn(); err == nil {
 		_ = sc.Control(func(fd uintptr) {
 			_ = syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_BROADCAST, 1)
@@ -93,7 +90,6 @@ func sendWOL(cfg *Config) error {
 	return nil
 }
 
-// wolLoop repeatedly sends magic packets once per second until stop is closed.
 func wolLoop(cfg *Config, stop <-chan struct{}) {
 	if err := sendWOL(cfg); err != nil {
 		logf("WOL: %v", err)
