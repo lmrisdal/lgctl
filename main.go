@@ -30,6 +30,8 @@ Commands:
                    Set the input type (icon/label) for an HDMI input, e.g.
                    "pc", "gameconsole", "settopbox". Run with no type to list.
   status           Print the TV's power state and active input.
+  update [--force] Download and install the latest lgctl release (run with sudo
+                   if lgctl lives in a root-owned path like /usr/local/bin).
   version          Print version.
 
 Config is searched in this order when --config is omitted:
@@ -62,6 +64,18 @@ func main() {
 	}
 	if cmd == "help" || cmd == "-h" || cmd == "--help" {
 		fmt.Print(usage)
+		return
+	}
+	if cmd == "update" {
+		force := false
+		upFs := flag.NewFlagSet("update", flag.ContinueOnError)
+		upFs.BoolVar(&force, "force", false, "reinstall even if already on the latest version")
+		if err := upFs.Parse(rest); err != nil {
+			os.Exit(2)
+		}
+		if err := cmdUpdate(force); err != nil {
+			log.Fatal(err)
+		}
 		return
 	}
 

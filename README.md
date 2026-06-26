@@ -149,9 +149,15 @@ lgctl input 2       # switch to HDMI 2 (wakes the TV first if it's off)
 lgctl input-type 2 pc   # set HDMI 2's input type to "PC" (icon + label)
 lgctl input-type list   # list the available input types
 lgctl status        # show power state and active input
+sudo lgctl update   # download and install the latest release in place
 ```
 
 `on`/`off` also accept the aliases `resume`/`suspend`.
+
+`update` fetches the latest GitHub release for your architecture, verifies it
+against the published `SHA256SUMS.txt`, and atomically swaps the running binary.
+Use `sudo` when `lgctl` lives in a root-owned path like `/usr/local/bin`; add
+`--force` to reinstall even when you're already on the latest version.
 
 ## Notes
 
