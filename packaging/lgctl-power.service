@@ -14,7 +14,8 @@ RemainAfterExit=yes
 # the unit start even if the launcher returns non-zero.
 ExecStart=-/bin/sh -c '/usr/local/bin/lgctl --config /etc/lgctl/config.json on &'
 # Fired as the machine powers down: power the TV off (input-aware).
-ExecStop=-/usr/local/bin/lgctl --config /etc/lgctl/config.json off
+# Skip if this is a reboot — the TV should stay on.
+ExecStop=-/bin/sh -c 'systemctl list-jobs --no-legend | grep -q reboot.target || /usr/local/bin/lgctl --config /etc/lgctl/config.json off'
 TimeoutStopSec=30
 
 [Install]
